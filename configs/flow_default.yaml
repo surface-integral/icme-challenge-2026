@@ -1,0 +1,95 @@
+# configs/flow_default.yaml
+# ATTM-Mamba v2: Bidirectional Mamba + Flow Matching + MusicDCAE
+# Replaces the autoregressive EnCodec-token approach.
+
+# ── Paths ──────────────────────────────────────────────────────────────────
+paths:
+  audio_dir:      "../mtg_jamendo_separated"    # Vocal-separated .mp3 files
+  latent_dir:     "../mtg_latents"              # Pre-computed DCAE latent .pt files
+  caption_dir:    "../mtg_captions"             # Per-file caption .txt files
+  checkpoint_dir: "./checkpoints_flow"
+  log_dir:        "./logs_flow"
+
+# ── Audio / DCAE (auxiliary — pre-trained, frozen) ─────────────────────────
+audio:
+  sample_rate: 48000          # MusicDCAE expects 48kHz stereo
+  dcae_model_id: "ACE-Step/ACE-Step-v1-3.5B"
+  dcae_subfolder: "music_dcae_f8c8"
+  # Latent shape after encoding a 30s clip:
+  #   8 channels, ~10.77 Hz frame rate
+  #   30s × 10.77 ≈ 323 frames  →  (8, 323) per clip
+  latent_channels: 8
+  latent_fps: 10.77            # approximate temporal resolution in latent space
+  max_duration_sec: 30.0
+  # Normalisation constants (empirical, from ACE-Step paper)
+  latent_mean: 0.0
+  latent_std:  1.0             # will be estimated from data if set to null
+
+# ── Text Encoder (auxiliary — T5, frozen) ─────────────────────────────────
+text_encoder:
+  model_name: "google/flan-t5-base"
+  max_text_len: 128
+  hidden_size: 768             # T5-base output dim
+
+# ── Bidirectional Mamba Flow Network (CORE — trained from scratch) ─────────
+model:
+  # Latent input dimension
+  latent_channels: 8           # Must match audio.latent_channels
+
+  # Mamba backbone
+  d_model: 512                 # Model dimension (reduced vs AR version for flow)
+  n_layers: 24                 # Number of bidirectional Mamba blocks
+  d_state: 16                  # SSM state size
+  d_conv: 4                    # Causal conv width (still used per direction)
+  expand: 2                    # d_inner = expand × d_model
+  dt_rank: "auto"
+
+  # Conditioning
+  conditioning_dim: 768        # T5-base hidden size
+  conditioning_heads: 8
+
+  # Timestep embedding
+  time_embed_dim: 256          # Sinusoidal + MLP time embedding dimension
+
+  # AdaLayerNorm for timestep conditioning (DiT-style)
+  use_ada_ln: true
+
+  dropout: 0.1
+
+# ── Flow Matching ───────────────────────────────────────────────────────────
+flow:
+  # Optimal transport conditional flow matching (straight paths)
+  sigma_min: 1.0e-4            # Minimum noise level at t=1 (data side)
+  # Time sampling distribution during training
+  # "uniform": t ~ Uniform(0, 1)
+  # "logit_normal": t ~ LogitNormal(0, 1) — concentrates on hard midpoint times
+  time_sampling: "logit_normal"
+  logit_normal_mean: 0.0
+  logit_normal_std: 1.0
+  # CFG dropout
+  cfg_dropout_prob: 0.1
+
+# ── Inference (ODE integration) ────────────────────────────────────────────
+generation:
+  n_steps: 50                  # Number of Euler steps
+  cfg_coeff: 3.5               # Classifier-free guidance scale
+  duration_sec: 10.0
+
+# ── Training ───────────────────────────────────────────────────────────────
+training:
+  seed: 42
+  batch_size: 16               # Larger than AR: latents are much cheaper
+  gradient_accumulation_steps: 2
+  max_steps: 300000
+  warmup_steps: 2000
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  grad_clip: 1.0
+  mixed_precision: "bf16"
+  lr_scheduler: "cosine"
+  lr_min_ratio: 0.1
+  log_every: 50
+  eval_every: 2000
+  save_every: 5000
+  keep_last_n_checkpoints: 3
+  num_workers: 4

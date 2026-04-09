@@ -12,7 +12,7 @@ The MusicDCAE checkpoint is publicly available on Hugging Face under Apache 2.0:
   ACE-Step/ACE-Step-v1-3.5B  /  music_dcae_f8c8
 
 Architecture recap (from ACE-Step paper):
-  - Input:  mel-spectrogram of 48kHz stereo audio
+  - Input:  mel-spectrogram of 44.1kHz stereo audio
   - Encoder: deep convolutional encoder with residual blocks
   - Latent: 8 channels, 8× temporal compression → ~10.77 Hz frame rate
   - Decoder: symmetric convolutional decoder → mel-spectrogram
@@ -29,12 +29,13 @@ from typing import Optional, Tuple
 import torch
 import torch.nn as nn
 import torchaudio
-import torchaudio.transforms as T
+import torchaudio.transforms
+import torch.nn.functional as F
 import numpy as np
 
 
 # Normalisation constants measured from the Jamendo training set
-# (you can re-estimate these with scripts/3b_encode_latents.py --stats)
+# (you can re-estimate these with scripts/3_encode_latents.py --stats)
 LATENT_MEAN = 0.0
 LATENT_STD  = 1.0   # update after running --stats pass
 
@@ -68,7 +69,7 @@ class MusicDCAEWrapper(nn.Module):
         self.latent_std  = latent_std
         
         self._resampler_cache = {}   # keyed by source sr
-        self._mel_transform = T.MelSpectrogram(
+        self._mel_transform = torchaudio.transforms.MelSpectrogram(
             sample_rate=44100,
             n_fft=2048,
             hop_length=512,
@@ -142,26 +143,41 @@ class MusicDCAEWrapper(nn.Module):
         wav, sr = torchaudio.load(audio_path)
         # Resample to 44.1kHz (MusicDCAE internal rate)
         if sr not in self._resampler_cache:
-            self._resampler_cache[sr] = T.Resample(sr, 44100).to(self.device)
+            self._resampler_cache[sr] = torchaudio.transforms.Resample(sr, 44100).to(self.device)
         wav = self._resampler_cache[sr](wav.to(self.device))
-        # Stereo → mono mean for mel
-        if wav.shape[0] > 1:
-            wav_mono = wav.mean(0)
-        else:
-            wav_mono = wav[0]
 
-        # Build mel-spectrogram
-        mel = self._mel_transform(wav_mono)                  # (128, T_mel)
-        mel = torch.log(mel.clamp(min=1e-5))           # log-mel
-        mel = mel.unsqueeze(0).unsqueeze(0)            # (1, 1, 128, T_mel)
+        if wav.shape[0] == 1:
+            wav = wav.repeat(2, 1)
+        elif wav.shape[0] > 2:
+            wav = wav[:2]  # take first 2 channels if more than stereo
+
+        mel_L = self._mel_transform(wav[0])   # (128, T_mel)
+        mel_R = self._mel_transform(wav[1])   # (128, T_mel)
+
+        mel_L = torch.log(mel_L.clamp(min=1e-5))
+        mel_R = torch.log(mel_R.clamp(min=1e-5))
+
+        # Stack to stereo: (1, 2, 128, T_mel)
+        mel = torch.stack([mel_L, mel_R], dim=0)   # (2, 128, T_mel)
+        
+        temporal_downscale_factor = 8
+        T_mel = mel.size(-1)
+        remainder = T_mel % temporal_downscale_factor
+        if remainder > 0:
+            pad_len = temporal_downscale_factor - remainder
+            # Pad the last dimension (time) by pad_len on the right side
+            mel = F.pad(mel, (0, pad_len))
+            
+        mel = mel.unsqueeze(0)                      # (1, 2, 128, T_mel)
 
         mel = mel.to(self.device)
         latents = self._dcae.encode(mel).latent  # (1, C, H, T)
+        
         # Squeeze batch dim and merge H (freq) into C if 4D
         latents = latents.squeeze(0)                   # (C, H, T) or (C, T)
         if latents.dim() == 3:
             C, H, T = latents.shape
-            latents = latents.view(C * H, T)           # flatten freq into channels
+            latents = latents.reshape(C * H, T)           # flatten freq into channels
 
         return latents.cpu()
 
@@ -176,7 +192,7 @@ class MusicDCAEWrapper(nn.Module):
             latents: (C, T) float32 — normalised flow output.
 
         Returns:
-            waveform: numpy (n_samples,) at 48kHz stereo (then averaged to mono).
+            waveform: numpy (n_samples,) at 44.1kHz stereo.
         """
         # De-normalise
         raw = latents * self.latent_std + self.latent_mean
@@ -217,7 +233,8 @@ class MusicDCAEWrapper(nn.Module):
             try:
                 lat = self.encode.__wrapped__(self, path)  # skip normalisation
                 all_latents.append(lat.float().mean())
-            except Exception:
+            except Exception as e:
+                print(f"Error processing {path}: {e}")
                 pass
 
         vals = torch.stack(all_latents)

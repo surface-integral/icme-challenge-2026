@@ -28,6 +28,8 @@ from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
+import torchaudio
+import torchaudio.transforms as T
 import numpy as np
 
 
@@ -56,7 +58,7 @@ class MusicDCAEWrapper(nn.Module):
         self,
         model_id:    str   = "ACE-Step/ACE-Step-v1-3.5B",
         subfolder:   str   = "music_dcae_f8c8",
-        device:      str   = "cpu",
+        device:      str   = "cuda",
         latent_mean: float = LATENT_MEAN,
         latent_std:  float = LATENT_STD,
     ):
@@ -64,6 +66,15 @@ class MusicDCAEWrapper(nn.Module):
         self.device      = device
         self.latent_mean = latent_mean
         self.latent_std  = latent_std
+        
+        self._resampler_cache = {}   # keyed by source sr
+        self._mel_transform = T.MelSpectrogram(
+            sample_rate=44100,
+            n_fft=2048,
+            hop_length=512,
+            n_mels=128,
+            power=1.0,
+        ).to(device)
 
         print(f"[MusicDCAE] Loading from {model_id}/{subfolder} ...")
         self._load_dcae(model_id, subfolder, device)
@@ -95,7 +106,7 @@ class MusicDCAEWrapper(nn.Module):
                 torch_dtype=torch.float32,
             ).to(device)
             self._backend = "diffusers"
-            self.latent_channels = self._dcae.latent_channels
+            self.latent_channels = self._dcae.config.latent_channels
 
         # Freeze all parameters
         for p in self.parameters():
@@ -128,13 +139,11 @@ class MusicDCAEWrapper(nn.Module):
         Fallback encoder when using diffusers AutoencoderDC.
         Converts audio → mel-spectrogram → latents via the DCAE encoder.
         """
-        import torchaudio
-        import torchaudio.transforms as T
-
         wav, sr = torchaudio.load(audio_path)
         # Resample to 44.1kHz (MusicDCAE internal rate)
-        if sr != 44100:
-            wav = T.Resample(sr, 44100)(wav)
+        if sr not in self._resampler_cache:
+            self._resampler_cache[sr] = T.Resample(sr, 44100).to(self.device)
+        wav = self._resampler_cache[sr](wav.to(self.device))
         # Stereo → mono mean for mel
         if wav.shape[0] > 1:
             wav_mono = wav.mean(0)
@@ -142,14 +151,7 @@ class MusicDCAEWrapper(nn.Module):
             wav_mono = wav[0]
 
         # Build mel-spectrogram
-        mel_transform = T.MelSpectrogram(
-            sample_rate=44100,
-            n_fft=2048,
-            hop_length=512,
-            n_mels=128,
-            power=1.0,
-        )
-        mel = mel_transform(wav_mono)                  # (128, T_mel)
+        mel = self._mel_transform(wav_mono)                  # (128, T_mel)
         mel = torch.log(mel.clamp(min=1e-5))           # log-mel
         mel = mel.unsqueeze(0).unsqueeze(0)            # (1, 1, 128, T_mel)
 

@@ -58,7 +58,9 @@ class FlowDataset(Dataset):
                     self.pairs.append((lf, cf))
         else:
             import json
-            default_captions_dir = Path("../default_captions")
+            file_location = Path(__file__).resolve().parent
+            default_captions_dir = file_location.parent / "default_captions"
+            default_captions_dir = default_captions_dir.resolve()
             caption_and_path = json.load(open(default_captions_dir / "jamendo_qwen.json", 'r'))
             path_to_caption = {item['path']: item['caption'] for item in caption_and_path}
             

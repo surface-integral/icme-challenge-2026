@@ -34,7 +34,7 @@ text_encoder:
 # ── Bidirectional Mamba Flow Network (CORE — trained from scratch) ─────────
 model:
   # Latent input dimension
-  latent_channels: 8           # Must match audio.latent_channels
+  latent_channels: 128           # Must match audio.latent_channels
 
   # Mamba backbone
   d_model: 512                 # Model dimension (reduced vs AR version for flow)

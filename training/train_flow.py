@@ -256,7 +256,9 @@ def train(cfg, resume_from: Optional[str] = None, use_default_captions: bool = T
         print(f"[Resume] Step {start_step}")
 
     # ── Training loop ─────────────────────────────────────────────────────
-    ckpt_dir     = Path(cfg.paths.checkpoint_dir)
+    current_file = Path(__file__).resolve()
+    project_root = current_file.parent.parent
+    ckpt_dir     = Path(project_root / cfg.paths.checkpoint_dir)
     model.train()
     conditioner.train()
 

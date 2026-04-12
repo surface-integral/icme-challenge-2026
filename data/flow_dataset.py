@@ -41,13 +41,16 @@ class FlowDataset(Dataset):
         seed:         int   = 42,
         use_default_captions: bool = True,
     ):
-        self.latent_dir  = Path(latent_dir)
-        self.caption_dir = Path(caption_dir)
+        current_file = Path(__file__).resolve()
+        project_root = current_file.parent.parent
+        self.latent_dir  = Path(project_root / latent_dir)
+        self.caption_dir = Path(project_root / caption_dir)
         self.max_frames  = max_frames
         self.use_default_captions = use_default_captions
 
         # ── Pair up files ──
         latent_files = sorted(self.latent_dir.rglob("*.pt"))
+        assert(len(latent_files) > 0)
         self.pairs: List[Tuple[Path, Path | str]] = []
         
         if not use_default_captions:
@@ -67,6 +70,7 @@ class FlowDataset(Dataset):
             for lf in latent_files:
                 rel = lf.relative_to(self.latent_dir)
                 audio_rel = rel.with_suffix(".mp3").as_posix()
+                audio_rel = audio_rel.replace("_instrumental", "")
                 caption = path_to_caption.get(audio_rel, None)
                 
                 if caption is None:

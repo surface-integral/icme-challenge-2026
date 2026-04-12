@@ -1,3 +1,6 @@
 .vscode/*
 mtg_full_separated/*
 mtg_latents/*
+model/__pycache__/*
+data/__pycache__/*
+wandb/*

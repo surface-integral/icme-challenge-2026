@@ -36,8 +36,8 @@ import numpy as np
 
 # Normalisation constants measured from the Jamendo training set
 # (you can re-estimate these with scripts/3_encode_latents.py --stats)
-LATENT_MEAN = 0.0
-LATENT_STD  = 1.0   # update after running --stats pass
+LATENT_MEAN = -0.4981
+LATENT_STD  = 9.4585   # update after running --stats pass
 
 
 class MusicDCAEWrapper(nn.Module):
@@ -98,7 +98,7 @@ class MusicDCAEWrapper(nn.Module):
             self._backend = "acestep"
             self.latent_channels = 8   # f8c8 always has 8 channels
 
-        except ImportError:
+        except Exception:
             # Fallback: load via diffusers AutoencoderDC
             from diffusers.models.autoencoders.autoencoder_dc import AutoencoderDC
             self._dcae = AutoencoderDC.from_pretrained(

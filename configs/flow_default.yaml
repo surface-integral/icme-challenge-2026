@@ -4,11 +4,11 @@
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 paths:
-  audio_dir:      "../mtg_jamendo_separated"    # Vocal-separated .mp3 files
-  latent_dir:     "../mtg_latents"              # Pre-computed DCAE latent .pt files
-  caption_dir:    "../mtg_captions"             # Per-file caption .txt files
-  checkpoint_dir: "./checkpoints_flow"
-  log_dir:        "./logs_flow"
+  audio_dir:      "mtg_full_separated"    # Vocal-separated .mp3 files
+  latent_dir:     "mtg_latents"              # Pre-computed DCAE latent .pt files
+  caption_dir:    "mtg_captions"             # Per-file caption .txt files
+  checkpoint_dir: "checkpoints_flow"
+  log_dir:        "logs_flow"
 
 # ── Audio / DCAE (auxiliary — pre-trained, frozen) ─────────────────────────
 audio:

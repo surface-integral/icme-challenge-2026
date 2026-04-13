@@ -35,6 +35,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from mamba_ssm import Mamba
 from einops import rearrange
 
 
@@ -124,74 +125,6 @@ class AdaLayerNorm(nn.Module):
         gamma, beta = self.proj(cond).unsqueeze(1).chunk(2, dim=-1)  # each (B, 1, d_model)
         return (1 + gamma) * self.norm(x) + beta
 
-
-# ── Single-direction Mamba SSM (shared between forward and backward passes) ─
-
-class MambaSSM(nn.Module):
-    """
-    One direction of the bidirectional Mamba SSM.
-    Identical to the causal SSM in mamba_lm.py, but used here non-causally
-    by running once forward and once on the flipped sequence.
-    """
-
-    def __init__(self, cfg: BidirMambaConfig):
-        super().__init__()
-        self.d_inner = cfg.d_inner
-        self.d_state = cfg.d_state
-        self.dt_rank = cfg.dt_rank
-
-        self.in_proj  = nn.Linear(cfg.d_model, 2 * cfg.d_inner, bias=cfg.bias)
-        self.conv1d   = nn.Conv1d(
-            cfg.d_inner, cfg.d_inner, bias=cfg.conv_bias,
-            kernel_size=cfg.d_conv, groups=cfg.d_inner, padding=cfg.d_conv - 1,
-        )
-        self.act      = nn.SiLU()
-        self.x_proj   = nn.Linear(cfg.d_inner, cfg.dt_rank + 2 * cfg.d_state, bias=False)
-        self.dt_proj  = nn.Linear(cfg.dt_rank, cfg.d_inner, bias=True)
-
-        # Δ initialisation
-        dt = torch.exp(
-            torch.rand(cfg.d_inner) * (math.log(cfg.dt_max) - math.log(cfg.dt_min))
-            + math.log(cfg.dt_min)
-        ).clamp(min=1e-4)
-        with torch.no_grad():
-            self.dt_proj.bias.copy_(dt + torch.log(-torch.expm1(-dt)))
-
-        A = torch.arange(1, cfg.d_state + 1, dtype=torch.float32).unsqueeze(0).repeat(cfg.d_inner, 1)
-        self.A_log  = nn.Parameter(torch.log(A))
-        self.D      = nn.Parameter(torch.ones(cfg.d_inner))
-        self.out_proj = nn.Linear(cfg.d_inner, cfg.d_model, bias=cfg.bias)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """x: (B, L, d_model)  →  (B, L, d_model)"""
-        B, L, _ = x.shape
-        xz  = self.in_proj(x)
-        x_, z = xz.chunk(2, dim=-1)
-
-        x_ = rearrange(x_, "b l d -> b d l")
-        x_ = self.conv1d(x_)[..., :L]
-        x_ = rearrange(x_, "b d l -> b l d")
-        x_ = self.act(x_)
-
-        x_proj_out = self.x_proj(x_)
-        delta, B_mat, C_mat = x_proj_out.split([self.dt_rank, self.d_state, self.d_state], dim=-1)
-        delta = F.softplus(self.dt_proj(delta)).float()
-
-        A     = -torch.exp(self.A_log.float())
-        A_bar = torch.exp(delta.unsqueeze(-1) * A)
-        B_bar = delta.unsqueeze(-1) * B_mat.unsqueeze(-2).float()
-
-        h  = torch.zeros(B, self.d_inner, self.d_state, device=x.device, dtype=torch.float32)
-        ys = []
-        for i in range(L):
-            h = A_bar[:, i] * h + B_bar[:, i] * x_[:, i].float().unsqueeze(-1)
-            ys.append((h * C_mat[:, i].float().unsqueeze(-2)).sum(-1))
-
-        y = torch.stack(ys, dim=1).to(x.dtype) + x_.float().to(x.dtype) * self.D
-        y = y * self.act(z)
-        return self.out_proj(y)
-
-
 # ── Bidirectional Mamba SSM ─────────────────────────────────────────────────
 
 class BidirMambaSSM(nn.Module):
@@ -208,8 +141,14 @@ class BidirMambaSSM(nn.Module):
 
     def __init__(self, cfg: BidirMambaConfig):
         super().__init__()
-        self.fwd_ssm  = MambaSSM(cfg)
-        self.bwd_ssm  = MambaSSM(cfg)
+        self.fwd_ssm  = Mamba(d_model=cfg.d_model,
+                              d_state = cfg.d_state,
+                              d_conv=cfg.d_conv,
+                              expand=cfg.expand)
+        self.bwd_ssm  = Mamba(d_model=cfg.d_model,
+                              d_state = cfg.d_state,
+                              d_conv=cfg.d_conv,
+                              expand=cfg.expand)
         # Merge forward + backward outputs (both are d_model) → d_model
         self.merge    = nn.Linear(2 * cfg.d_model, cfg.d_model, bias=False)
 

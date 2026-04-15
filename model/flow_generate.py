@@ -57,7 +57,7 @@ def generate_music_flow(
     n_steps:      int   = 50,
     cfg_coeff:    float = 3.5,
     latent_fps:   float = 10.77,
-    latent_channels: int = 8,
+    latent_dim:   int = 128,
     device:       str   = "cuda",
     seed:         int   = 0,
 ) -> np.ndarray:
@@ -74,7 +74,7 @@ def generate_music_flow(
 
     # Latent shape for the requested duration
     T = int(duration_sec * latent_fps)
-    C = latent_channels
+    C = latent_dim
 
     # ── 1. Encode text prompt ──────────────────────────────────────────────
     ctx,      ctx_mask  = conditioner.encode_text([prompt], device=dev)    # (1, S, d)

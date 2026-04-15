@@ -134,7 +134,7 @@ def save_checkpoint(path, step, model, conditioner, optimizer, scaler, cfg):
         "optimizer":    optimizer.state_dict(),
         "scaler":       scaler.state_dict() if scaler else None,
         "model_config": {
-            "latent_channels":    cfg.model.latent_channels,
+            "latent_dim":         cfg.model.latent_dim,
             "d_model":            cfg.model.d_model,
             "n_layers":           cfg.model.n_layers,
             "d_state":            cfg.model.d_state,
@@ -193,7 +193,7 @@ def train(cfg, resume_from: Optional[str] = None, use_default_captions: bool = T
 
     # ── Core model (trained from scratch) ────────────────────────────────
     model_cfg = BidirMambaConfig(
-        latent_channels    = cfg.model.latent_channels,
+        latent_dim         = cfg.model.latent_dim,
         d_model            = cfg.model.d_model,
         n_layers           = cfg.model.n_layers,
         d_state            = cfg.model.d_state,
@@ -382,7 +382,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="configs/flow_default.yaml")
     parser.add_argument("--resume", default=None)
-    parser.add_argument("--use_default_captions", default=True, action="store_true",
+    parser.add_argument("--use_default_captions", default=False, action="store_true",
                         help="Whether to use competition-provided captions instead of generating your own with scripts/4_caption_audio.py")
     args = parser.parse_args()
     cfg  = OmegaConf.load(args.config)

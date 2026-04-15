@@ -59,7 +59,7 @@ Audio Waveform (48kHz)
 ```
 Step 1: bash scripts/1_download_dataset.sh          # same as v1
 Step 2: bash scripts/2_preprocess.sh                # same as v1 (vocal separation)
-Step 3: python scripts/3b_encode_latents.py \       # NEW: DCAE instead of EnCodec
+Step 3: python scripts/3_encode_latents.py \       # NEW: DCAE instead of EnCodec
             --audio_dir ../mtg_jamendo_separated \
             --output_dir ../mtg_latents \
             --stats     # first run: estimate mean/std, update config

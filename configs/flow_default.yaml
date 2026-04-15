@@ -12,7 +12,7 @@ paths:
 
 # ── Audio / DCAE (auxiliary — pre-trained, frozen) ─────────────────────────
 audio:
-  sample_rate: 48000          # MusicDCAE expects 48kHz stereo
+  sample_rate: 44100          # MusicDCAE expects 44.1kHz stereo
   dcae_model_id: "ACE-Step/ACE-Step-v1-3.5B"
   dcae_subfolder: "music_dcae_f8c8"
   # Latent shape after encoding a 30s clip:
@@ -34,7 +34,7 @@ text_encoder:
 # ── Bidirectional Mamba Flow Network (CORE — trained from scratch) ─────────
 model:
   # Latent input dimension
-  latent_channels: 128           # Must match audio.latent_channels
+  latent_dim: 128
 
   # Mamba backbone
   d_model: 512                 # Model dimension (reduced vs AR version for flow)

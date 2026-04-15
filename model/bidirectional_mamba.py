@@ -43,7 +43,7 @@ from einops import rearrange
 
 @dataclass
 class BidirMambaConfig:
-    latent_channels:    int   = 8       # DCAE latent channels (input/output)
+    latent_dim:         int   = 128     # DCAE latent dimension after reshaping (input/output)
     d_model:            int   = 512     # Core model dimension
     n_layers:           int   = 24
     d_state:            int   = 16
@@ -256,10 +256,10 @@ class LatentPatchEmbed(nn.Module):
     is established before the global Mamba scan.
     """
 
-    def __init__(self, latent_channels: int, d_model: int, patch_size: int = 1):
+    def __init__(self, latent_dim: int, d_model: int, patch_size: int = 1):
         super().__init__()
         self.patch_size = patch_size
-        self.proj = nn.Conv1d(latent_channels, d_model, kernel_size=patch_size, stride=patch_size)
+        self.proj = nn.Conv1d(latent_dim, d_model, kernel_size=patch_size, stride=patch_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """x: (B, T, C_lat) → (B, T', d_model)"""
@@ -288,8 +288,8 @@ class BidirMambaFlowNet(nn.Module):
         super().__init__()
         self.cfg = cfg
 
-        # Input projection: latent_channels → d_model
-        self.input_proj = LatentPatchEmbed(cfg.latent_channels, cfg.d_model)
+        # Input projection: latent_dim → d_model
+        self.input_proj = LatentPatchEmbed(cfg.latent_dim, cfg.d_model)
 
         # Timestep embedding
         self.time_embed = TimestepEmbedding(cfg.time_embed_dim)
@@ -297,9 +297,9 @@ class BidirMambaFlowNet(nn.Module):
         # Mamba blocks
         self.blocks = nn.ModuleList([BidirMambaBlock(cfg) for _ in range(cfg.n_layers)])
 
-        # Output projection: d_model → latent_channels
+        # Output projection: d_model → latent_dim
         self.norm_out = nn.LayerNorm(cfg.d_model)
-        self.out_proj = nn.Linear(cfg.d_model, cfg.latent_channels, bias=True)
+        self.out_proj = nn.Linear(cfg.d_model, cfg.latent_dim, bias=True)
         nn.init.zeros_(self.out_proj.weight)
         nn.init.zeros_(self.out_proj.bias)
 
@@ -338,7 +338,7 @@ class BidirMambaFlowNet(nn.Module):
 
 
 if __name__ == "__main__":
-    cfg   = BidirMambaConfig(d_model=256, n_layers=4, latent_channels=8)
+    cfg   = BidirMambaConfig(d_model=256, n_layers=4, latent_dim=128)
     model = BidirMambaFlowNet(cfg)
     n     = model.count_parameters()
     print(f"BidirMambaFlowNet  |  d_model={cfg.d_model}  n_layers={cfg.n_layers}  params={n:,}")

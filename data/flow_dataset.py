@@ -83,7 +83,7 @@ class FlowDataset(Dataset):
                 f"No (latent, caption) pairs found.\n"
                 f"  latent_dir:  {self.latent_dir}\n"
                 f"  caption_dir: {self.caption_dir}\n"
-                "Run scripts/3b_encode_latents.py and scripts/4_caption_audio.py first."
+                "Run scripts/3_encode_latents.py and scripts/4_caption_audio.py first."
             )
 
         # ── Train / val split ──

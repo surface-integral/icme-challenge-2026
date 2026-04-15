@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-scripts/3b_encode_latents.py
+scripts/3_encode_latents.py
 
 Pre-computes MusicDCAE latents for every audio file and saves them as .pt files.
 This replaces scripts/3_tokenize_audio.py in the flow-matching pipeline.
@@ -12,7 +12,7 @@ Latent shape per 30s clip:
   (8, ~323)  — 8 channels, ~10.77 Hz temporal resolution
 
 Usage:
-    python scripts/3b_encode_latents.py \
+    python scripts/3_encode_latents.py \
         --audio_dir  ../mtg_jamendo_separated \
         --output_dir ../mtg_latents \
         [--model_id  ACE-Step/ACE-Step-v1-3.5B] \

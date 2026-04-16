@@ -39,8 +39,13 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import sys
+from pathlib import Path
 import numpy as np
 import torch
+import torchaudio
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from model.bidirectional_mamba import BidirMambaConfig, BidirMambaFlowNet
 from model.conditioning import T5TextConditioner
@@ -111,9 +116,9 @@ def generate_music_flow(
     return wav
 
 
-def save_wav(wav: np.ndarray, path: str, sample_rate: int = 48000):
-    import soundfile as sf
-    sf.write(path, wav, sample_rate)
+def save_wav(wav: np.ndarray, path: str, sample_rate: int = 44100):
+    # import soundfile as sf
+    torchaudio.save(path, wav.cpu(), sample_rate)
     print(f"Saved: {path}")
 
 

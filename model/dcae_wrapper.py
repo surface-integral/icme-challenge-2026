@@ -137,6 +137,12 @@ class MusicDCAEWrapper(nn.Module):
         if self._backend == "acestep":
             # ACE-Step pipeline handles resampling, stereo, padding internally
             audio, sr = torchaudio.load(audio_path)
+
+            if audio.shape[0] == 1:
+                audio = audio.repeat(2, 1)
+            elif audio.shape[0] > 2:
+                audio = audio[:2, :]
+
             audios = audio.unsqueeze(0).to(self.device)
             
             raw_latents, length = self._dcae.encode(audios, sr=44100)

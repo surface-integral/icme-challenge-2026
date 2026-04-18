@@ -206,7 +206,7 @@ class MusicDCAEWrapper(nn.Module):
     # ── Decoding (inference) ───────────────────────────────────────────────
 
     @torch.inference_mode()
-    def decode(self, latents: torch.Tensor) -> np.ndarray:
+    def decode(self, latents: torch.Tensor) -> np.ndarray | torch.Tensor:
         """
         Decode normalised latents → waveform.
 
@@ -220,8 +220,11 @@ class MusicDCAEWrapper(nn.Module):
         raw = latents * self.latent_std + self.latent_mean
 
         if self._backend == "acestep":
-            wav = self._dcae.decode(raw.unsqueeze(0))  # (1, 2, N) stereo
-            wav_np = wav[0].mean(0).cpu().numpy()       # mono
+            if raw.dim() == 2:
+                _, T = raw.shape
+                raw = raw.reshape(8, 16, T)
+            sr, wavs = self._dcae.decode(raw.unsqueeze(0))  # (1, 2, N) stereo
+            wav_np = wavs[0]
         else:
             wav_np = self._diffusers_decode(raw)
 

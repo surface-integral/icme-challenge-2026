@@ -65,7 +65,7 @@ def generate_music_flow(
     latent_dim:   int = 128,
     device:       str   = "cuda",
     seed:         int   = 0,
-) -> np.ndarray:
+) -> np.ndarray | torch.Tensor:
     """
     Full text-to-music generation via flow matching + DCAE decode.
 
@@ -116,9 +116,8 @@ def generate_music_flow(
     return wav
 
 
-def save_wav(wav: np.ndarray, path: str, sample_rate: int = 44100):
-    # import soundfile as sf
-    torchaudio.save(path, wav.cpu(), sample_rate)
+def save_wav(wav: torch.Tensor, path: str, sample_rate: int = 44100):
+    torchaudio.save(path, wav, sample_rate)
     print(f"Saved: {path}")
 
 

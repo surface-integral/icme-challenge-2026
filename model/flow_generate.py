@@ -111,7 +111,7 @@ def generate_music_flow(
 
     # ── 4. Decode with MusicDCAE ───────────────────────────────────────────
     # DCAE expects (C, T)
-    wav = dcae.decode(clean_latent.permute(1, 0).cpu())   # numpy (n_samples,)
+    wav = dcae.decode(clean_latent.permute(1, 0))   # numpy (n_samples,)
 
     return wav
 

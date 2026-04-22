@@ -5,8 +5,8 @@ torch>=2.1.0
 torchaudio>=2.1.0
 
 # Mamba CUDA kernels (install after torch)
-# mamba-ssm>=1.2.0
-# causal-conv1d>=1.1.0
+mamba-ssm
+causal-conv1d
 
 # Text encoder (auxiliary — T5)
 transformers>=4.40.0
@@ -14,7 +14,7 @@ sentencepiece>=0.1.99
 
 # DCAE — two options (use whichever is available):
 # Option A: ACE-Step package (full MusicDCAE pipeline with vocoder)
-# pip install git+https://github.com/ace-step/ACE-Step.git
+pip install git+https://github.com/ace-step/ACE-Step.git
 # Option B: diffusers AutoencoderDC (DCAE without vocoder — needs HiFiGAN separately)
 diffusers>=0.27.0
 accelerate>=0.27.0
@@ -24,7 +24,7 @@ soundfile>=0.12.1
 librosa>=0.10.0
 
 # Utilities
-numpy>=1.24.0
+numpy<2.0
 tqdm>=4.66.0
 omegaconf>=2.3.0
 einops>=0.7.0
@@ -38,4 +38,5 @@ pydub>=0.25.1
 # Qwen2-Audio is loaded via transformers; no extra install needed.
 
 # Evaluation
-frechet_audio_distance
+msclap
+laion-clap

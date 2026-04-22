@@ -4,3 +4,7 @@ mtg_latents/*
 model/__pycache__/*
 data/__pycache__/*
 wandb/*
+checkpoints_flow/*
+submission_wavs/*
+jamendo_clap_stats.npz
+music_audioset_epoch_15_esc_90.14.pt

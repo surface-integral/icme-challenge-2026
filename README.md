@@ -90,11 +90,11 @@ matching, and require fewer integration steps at inference.
 
 | Component | Params | Role |
 |---|---|---|
-| BidirMambaFlowNet | ~120M | **Core model — trained from scratch** |
+| BidirMambaFlowNet | ~189M | **Core model — trained from scratch** |
 | T5-base encoder | ~220M | Auxiliary (text), frozen |
 | MusicDCAE f8c8 | ~314MB | Auxiliary (audio), frozen |
 
-Core model: 120M << 500M efficiency track limit ✓
+Core model: 189M << 500M efficiency track limit ✓
 
 ## DCAE Attribution
 
